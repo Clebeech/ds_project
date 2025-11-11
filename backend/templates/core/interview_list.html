@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block title %}访谈查询 - 832 Case Library{% endblock %}
+{% block content %}
+<section>
+    <h2>访谈查询</h2>
+    <form method="get">
+        <label>
+            县域
+            <select name="county">
+                <option value="">全部</option>
+                {% for county in counties %}
+                    <option value="{{ county.county_code }}" {% if county.county_code == current_filters.county %}selected{% endif %}>
+                        {{ county.province }} - {{ county.name }}
+                    </option>
+                {% endfor %}
+            </select>
+        </label>
+        <label>
+            调研员
+            <select name="surveyor">
+                <option value="">全部</option>
+                {% for surveyor in surveyors %}
+                    <option value="{{ surveyor.surveyor_id }}" {% if surveyor.surveyor_id == current_filters.surveyor %}selected{% endif %}>
+                        {{ surveyor.surveyor_id }} {{ surveyor.name }}
+                    </option>
+                {% endfor %}
+            </select>
+        </label>
+        <label>
+            质量评分≥
+            <input type="number" name="min_quality" value="{{ current_filters.min_quality }}" min="0" max="5" step="1">
+        </label>
+        <label>
+            关键词
+            <input type="text" name="keyword" value="{{ current_filters.keyword }}" placeholder="受访人/内容">
+        </label>
+        <button type="submit">查询</button>
+        <a href="{% url 'core:interview_list' %}">重置</a>
+    </form>
+</section>
+
+<section>
+    <h3>共 {{ page_obj.paginator.count }} 条访谈</h3>
+    {% for interview in interviews %}
+        <article>
+            <header>
+                <h4>{{ interview.interviewee_name|default:"未命名受访人" }}</h4>
+                <p>
+                    <strong>县域：</strong> {{ interview.county }} /
+                    <strong>调研员：</strong> {{ interview.surveyor }} /
+                    <strong>访谈时间：</strong> {{ interview.interview_date|date:"Y-m-d" }} /
+                    <strong>质量：</strong> {{ interview.quality_score|default:"-" }}
+                </p>
+            </header>
+            {% if interview.interviewee_profile %}
+                <p><em>{{ interview.interviewee_profile }}</em></p>
+            {% endif %}
+            <p>{{ interview.transcript|truncatechars:300 }}</p>
+            {% if interview.location %}
+                <p><small>地点：{{ interview.location }}</small></p>
+            {% endif %}
+        </article>
+    {% empty %}
+        <p>暂无符合条件的访谈记录。</p>
+    {% endfor %}
+
+    {% if is_paginated %}
+        <nav>
+            {% if page_obj.has_previous %}
+                <a href="?page={{ page_obj.previous_page_number }}{% if current_filters.county %}&county={{ current_filters.county }}{% endif %}{% if current_filters.surveyor %}&surveyor={{ current_filters.surveyor }}{% endif %}{% if current_filters.keyword %}&keyword={{ current_filters.keyword }}{% endif %}{% if current_filters.min_quality %}&min_quality={{ current_filters.min_quality }}{% endif %}">上一页</a>
+            {% endif %}
+            <span>第 {{ page_obj.number }} / {{ page_obj.paginator.num_pages }} 页</span>
+            {% if page_obj.has_next %}
+                <a href="?page={{ page_obj.next_page_number }}{% if current_filters.county %}&county={{ current_filters.county }}{% endif %}{% if current_filters.surveyor %}&surveyor={{ current_filters.surveyor }}{% endif %}{% if current_filters.keyword %}&keyword={{ current_filters.keyword }}{% endif %}{% if current_filters.min_quality %}&min_quality={{ current_filters.min_quality }}{% endif %}">下一页</a>
+            {% endif %}
+        </nav>
+    {% endif %}
+</section>
+{% endblock %}
+
+
