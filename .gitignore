@@ -1,27 +1,41 @@
 # Python
 __pycache__/
 *.py[cod]
+*$py.class
 *.so
-
-# Virtual env
-.env
-.venv/
-venv/
+.Python
 env/
+venv/
+ENV/
+.venv
 
-# macOS
-.DS_Store
-
-# Django / FastAPI
-*.log
-db.sqlite3
-
-# Node / Frontend
-node_modules/
-dist/
-
-# Misc
-.idea/
+# IDE
 .vscode/
+.idea/
+*.swp
+*.swo
+*~
 
+# OS
+.DS_Store
+Thumbs.db
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs
+*.log
+
+# Environment variables
+.env
+.env.local
+
+# Data files (large CSV files)
+# data/*.csv
+
+# Temporary files
+*.tmp
+*.temp
 
