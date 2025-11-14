@@ -3,14 +3,13 @@
 """
 import pymysql
 from functools import wraps
-import os
 
-# 数据库配置（支持环境变量，用于生产环境部署）
+# 数据库配置
 DB_CONFIG = {
-    'host': os.getenv('DB_HOST', 'localhost'),
-    'user': os.getenv('DB_USER', 'root'),
-    'password': os.getenv('DB_PASSWORD', ''),
-    'database': os.getenv('DB_NAME', 'poverty_alleviation_832'),
+    'host': 'localhost',
+    'user': 'root',
+    'password': '',
+    'database': 'poverty_alleviation_832',
     'charset': 'utf8mb4',
     'cursorclass': pymysql.cursors.DictCursor
 }

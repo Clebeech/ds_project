@@ -9,23 +9,33 @@ venv/
 ENV/
 .venv
 
-# 环境变量
-.env
-.env.local
-
 # IDE
 .vscode/
 .idea/
 *.swp
 *.swo
+*~
 
-# 数据库
-*.db
-*.sqlite
-
-# 日志
-*.log
-
-# 操作系统
+# OS
 .DS_Store
 Thumbs.db
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs
+*.log
+
+# Environment variables
+.env
+.env.local
+
+# Data files (large CSV files)
+# data/*.csv
+
+# Temporary files
+*.tmp
+*.temp
+

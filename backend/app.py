@@ -6,8 +6,7 @@ from flask_cors import CORS
 from backend.api import counties, interviews, compare, stats
 
 app = Flask(__name__)
-# CORS配置：允许所有来源（生产环境可以限制为特定域名）
-CORS(app, resources={r"/api/*": {"origins": "*"}})
+CORS(app)
 
 # 注册蓝图
 app.register_blueprint(counties.bp)

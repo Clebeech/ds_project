@@ -1,7 +1,5 @@
-// API基础URL（从config.js加载，如果不存在则使用默认值）
-const API_BASE = (typeof window !== 'undefined' && window.API_BASE) 
-    ? window.API_BASE 
-    : 'http://localhost:5001/api';
+// API基础URL
+const API_BASE = 'http://localhost:5001/api';
 
 // 初始化FullPage.js
 let fullpage_api;

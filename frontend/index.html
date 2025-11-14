@@ -24,14 +24,6 @@
     <!-- ECharts -->
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
     
-    <!-- API配置（部署时修改） -->
-    <script>
-        // 部署到生产环境时，修改这里的API地址
-        window.API_BASE = window.location.hostname === 'localhost' 
-            ? 'http://localhost:5001/api'
-            : 'https://your-backend-url.railway.app/api';  // 部署后修改这里
-    </script>
-    
     <style>
         * {
             font-family: 'Inter', sans-serif;
