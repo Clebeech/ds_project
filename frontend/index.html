@@ -19,9 +19,18 @@
     <!-- FullPage.js -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/fullPage.js/4.0.20/fullpage.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/fullPage.js/4.0.20/fullpage.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/fullPage.js/4.0.20/vendors/scrolloverflow.min.js"></script>
     
     <!-- ECharts -->
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+    
+    <!-- API配置（部署时修改） -->
+    <script>
+        // 部署到生产环境时，修改这里的API地址
+        window.API_BASE = window.location.hostname === 'localhost' 
+            ? 'http://localhost:5001/api'
+            : 'https://your-backend-url.railway.app/api';  // 部署后修改这里
+    </script>
     
     <style>
         * {
@@ -111,6 +120,20 @@
         #interview-filter-modal > div {
             pointer-events: auto !important;
         }
+        
+        #county-selector-modal {
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            right: 0 !important;
+            bottom: 0 !important;
+            z-index: 99999 !important;
+            pointer-events: auto !important;
+        }
+        
+        #county-selector-modal > div {
+            pointer-events: auto !important;
+        }
     </style>
 </head>
 <body class="bg-black text-white overflow-hidden">
@@ -165,7 +188,7 @@
                         </select>
                         <input type="text" id="search-input" placeholder="搜索县名..." class="flex-1 px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50">
                     </div>
-                    <div id="counties-container" class="grid grid-cols-1 md:grid-cols-3 gap-4 max-h-96 overflow-y-auto">
+                    <div id="counties-container" class="grid grid-cols-1 md:grid-cols-3 gap-4" style="max-height: 60vh; overflow-y: auto;">
                         <!-- Counties will be loaded here -->
                     </div>
                 </div>
@@ -173,19 +196,53 @@
         </div>
         
         <!-- Section 4: County Detail -->
-        <div class="section gradient-green">
-            <div class="flex items-center justify-center h-screen px-8">
-                <div class="max-w-7xl w-full">
+        <div class="section gradient-green fp-auto-height">
+            <div class="flex items-center justify-center min-h-screen px-8">
+                <div id="county-detail-content" class="max-w-7xl w-full py-8 overflow-y-auto" style="max-height: 100vh;">
                     <h2 class="section-title mb-4" id="county-detail-title">县域详情</h2>
                     <p class="section-subtitle mb-8">COUNTY DETAIL</p>
-                    <div id="county-detail-container" class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div class="bg-white/10 rounded-xl p-6">
-                            <h3 class="text-2xl font-bold mb-4">经济数据</h3>
-                            <div id="economy-chart" style="height: 300px;"></div>
+                    
+                    <!-- 经济数据部分 -->
+                    <div class="mb-8">
+                        <h3 class="text-2xl font-bold mb-4">经济数据分析</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                            <div class="bg-white/10 rounded-xl p-6">
+                                <h4 class="text-lg font-semibold mb-3">GDP趋势</h4>
+                                <div id="economy-gdp-chart" style="height: 300px;"></div>
+                            </div>
+                            <div class="bg-white/10 rounded-xl p-6">
+                                <h4 class="text-lg font-semibold mb-3">产业结构</h4>
+                                <div id="economy-structure-chart" style="height: 300px;"></div>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div class="bg-white/10 rounded-xl p-6">
+                                <h4 class="text-lg font-semibold mb-3">收入水平</h4>
+                                <div id="economy-income-chart" style="height: 300px;"></div>
+                            </div>
+                            <div class="bg-white/10 rounded-xl p-6">
+                                <h4 class="text-lg font-semibold mb-3">财政收支</h4>
+                                <div id="economy-fiscal-chart" style="height: 300px;"></div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 农业数据部分 -->
+                    <div>
+                        <h3 class="text-2xl font-bold mb-4">农业数据分析</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                            <div class="bg-white/10 rounded-xl p-6">
+                                <h4 class="text-lg font-semibold mb-3">农业产出</h4>
+                                <div id="agriculture-output-chart" style="height: 300px;"></div>
+                            </div>
+                            <div class="bg-white/10 rounded-xl p-6">
+                                <h4 class="text-lg font-semibold mb-3">农作物结构</h4>
+                                <div id="agriculture-crop-chart" style="height: 300px;"></div>
+                            </div>
                         </div>
                         <div class="bg-white/10 rounded-xl p-6">
-                            <h3 class="text-2xl font-bold mb-4">农业数据</h3>
-                            <div id="agriculture-chart" style="height: 300px;"></div>
+                            <h4 class="text-lg font-semibold mb-3">主要农作物面积</h4>
+                            <div id="agriculture-area-chart" style="height: 300px;"></div>
                         </div>
                     </div>
                 </div>
@@ -204,7 +261,7 @@
                         </button>
                         <input type="text" id="interview-search" placeholder="快速搜索关键词..." class="flex-1 px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50">
                     </div>
-                    <div id="interviews-container" class="space-y-4 max-h-96 overflow-y-auto">
+                    <div id="interviews-container" class="space-y-4" style="max-height: 60vh; overflow-y: auto;">
                         <!-- Interviews will be loaded here -->
                     </div>
                 </div>
@@ -218,12 +275,80 @@
                     <h2 class="section-title mb-4">对比分析</h2>
                     <p class="section-subtitle mb-8">COMPARATIVE ANALYSIS</p>
                     <div class="mb-6">
-                        <input type="text" id="compare-input" placeholder="输入县代码，用逗号分隔（如：130125,410526）" class="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 mb-4">
-                        <button onclick="loadCompareData()" class="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-lg font-semibold">
-                            <i class="fas fa-chart-bar mr-2"></i>开始对比
-                        </button>
+                        <div class="flex gap-4 mb-4">
+                            <button onclick="openCountySelector()" class="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-lg font-semibold">
+                                <i class="fas fa-plus mr-2"></i>选择县
+                            </button>
+                            <input type="text" id="compare-input" placeholder="或直接输入县代码，用逗号分隔（如：130125,410526）" class="flex-1 px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50">
+                            <button onclick="loadCompareData()" class="px-6 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg font-semibold">
+                                <i class="fas fa-chart-bar mr-2"></i>开始对比
+                            </button>
+                        </div>
+                        <div id="selected-counties" class="flex flex-wrap gap-2 mb-4">
+                            <!-- 已选择的县将显示在这里 -->
+                        </div>
+                        <div class="mb-4 flex gap-4 flex-wrap">
+                            <select id="compare-metric" class="px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white">
+                                <option value="GDP">GDP</option>
+                                <option value="PerCapitaGDP">人均GDP</option>
+                                <option value="RuralDisposableIncome">农村人均可支配收入</option>
+                                <option value="AgriOutputValue">农业总产值</option>
+                                <option value="FiscalRevenue">财政收入</option>
+                                <option value="FiscalExpenditure">财政支出</option>
+                                <option value="GrainOutput">粮食产量</option>
+                                <option value="MeatOutput">肉类产量</option>
+                                <option value="IndustrialOutput">工业总产值</option>
+                                <option value="RetailSales">社会消费品零售总额</option>
+                            </select>
+                            <select id="compare-chart-type" class="px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white">
+                                <option value="line">折线图</option>
+                                <option value="bar">柱状图</option>
+                                <option value="area">面积图</option>
+                            </select>
+                        </div>
                     </div>
-                    <div id="compare-chart" style="height: 400px;"></div>
+                    <div id="compare-chart-container" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div id="compare-chart" style="height: 400px;"></div>
+                        <div id="compare-pie-chart" style="height: 400px;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+    </div>
+    
+    <!-- 县选择器弹窗 - 放在fullpage容器外部 -->
+    <div id="county-selector-modal" class="fixed inset-0 bg-black/80 z-[9999]" style="display: none;">
+        <div class="flex items-center justify-center h-full w-full p-4">
+            <div class="bg-gray-900 rounded-xl p-8 max-w-4xl w-full max-h-[90vh] overflow-y-auto relative">
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="text-2xl font-bold">选择对比县</h3>
+                    <button onclick="closeCountySelector()" class="text-white/70 hover:text-white">
+                        <i class="fas fa-times text-2xl"></i>
+                    </button>
+                </div>
+                <div class="mb-4 flex gap-4">
+                    <select id="selector-region" class="px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white">
+                        <option value="">全部地区</option>
+                        <option value="东部">东部</option>
+                        <option value="中部">中部</option>
+                        <option value="西部">西部</option>
+                    </select>
+                    <select id="selector-province" class="px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white">
+                        <option value="">全部省份</option>
+                    </select>
+                    <input type="text" id="selector-search" placeholder="搜索县名..." class="flex-1 px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50">
+                </div>
+                <div id="county-selector-list" class="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4" style="max-height: 50vh; overflow-y: auto;">
+                    <!-- 县列表将显示在这里 -->
+                </div>
+                <div class="flex gap-4 pt-4 border-t border-white/20">
+                    <button onclick="applyCountySelection()" class="flex-1 px-6 py-3 bg-indigo-600 hover:bg-indigo-700 rounded-lg font-semibold">
+                        <i class="fas fa-check mr-2"></i>确认选择
+                    </button>
+                    <button onclick="closeCountySelector()" class="px-6 py-3 bg-white/10 hover:bg-white/20 rounded-lg font-semibold">
+                        取消
+                    </button>
                 </div>
             </div>
         </div>

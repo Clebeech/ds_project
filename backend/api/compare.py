@@ -94,13 +94,15 @@ def compare_trend():
     if len(county_codes) > 10:
         return jsonify({'success': False, 'error': '最多对比10个县'}), 400
     
-    valid_metrics = ['GDP', 'PerCapitaGDP', 'RuralDisposableIncome', 'AgriOutputValue']
+    valid_metrics = ['GDP', 'PerCapitaGDP', 'RuralDisposableIncome', 'AgriOutputValue', 
+                     'FiscalRevenue', 'FiscalExpenditure', 'GrainOutput', 'MeatOutput',
+                     'IndustrialOutput', 'RetailSales']
     if metric not in valid_metrics:
         return jsonify({'success': False, 'error': f'指标必须是: {", ".join(valid_metrics)}'}), 400
     
     placeholders = ','.join(['%s'] * len(county_codes))
     
-    if metric == 'AgriOutputValue':
+    if metric in ['AgriOutputValue', 'GrainOutput', 'MeatOutput']:
         table = 'county_agriculture'
     else:
         table = 'county_economy'

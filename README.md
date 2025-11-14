@@ -78,6 +78,11 @@ python -m http.server 8000
 
 在浏览器访问 `http://localhost:8000`
 
+**提示：** 如果页面显示异常，请强制刷新浏览器缓存：
+- **Mac**: 按 `Cmd + Shift + R`
+- **Windows/Linux**: 按 `Ctrl + Shift + R` 或 `Ctrl + F5`
+- 或者打开开发者工具（F12），右键点击刷新按钮，选择"清空缓存并硬性重新加载"
+
 ## 功能模块
 
 ### 后端API

@@ -9,14 +9,20 @@ bp = Blueprint('counties', __name__, url_prefix='/api/counties')
 
 @bp.route('', methods=['GET'])
 def get_counties():
-    """获取县列表"""
+    """获取县列表，优先返回数据完整的县"""
     region = request.args.get('region')
     exit_year = request.args.get('exit_year')
     province = request.args.get('province')
     
     sql = """
         SELECT c.CountyCode, c.CountyName, c.Province, c.City,
-               c.Longitude, c.Latitude, p.ExitYear, p.Region
+               c.Longitude, c.Latitude, p.ExitYear, p.Region,
+               -- 数据完整性评分：检查是否有经济数据、农业数据、农作物数据
+               (
+                   (CASE WHEN EXISTS(SELECT 1 FROM county_economy WHERE CountyCode = c.CountyCode) THEN 1 ELSE 0 END) +
+                   (CASE WHEN EXISTS(SELECT 1 FROM county_agriculture WHERE CountyCode = c.CountyCode) THEN 1 ELSE 0 END) +
+                   (CASE WHEN EXISTS(SELECT 1 FROM crop_area WHERE CountyCode = c.CountyCode) THEN 1 ELSE 0 END)
+               ) as DataCompleteness
         FROM county c
         LEFT JOIN poverty_counties p ON c.CountyCode = p.CountyCode
         WHERE 1=1
@@ -33,7 +39,7 @@ def get_counties():
         sql += " AND c.Province = %s"
         params.append(province)
     
-    sql += " ORDER BY p.ExitYear, c.Province, c.CountyName"
+    sql += " ORDER BY DataCompleteness DESC, p.ExitYear, c.Province, c.CountyName"
     
     try:
         result = execute_query(sql, params)

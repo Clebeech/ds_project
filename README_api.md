@@ -36,6 +36,10 @@ flask run
 
 API服务将在 `http://localhost:5001` 启动
 
+**访问链接：**
+- 后端API: http://localhost:5001/api
+- 前端应用: http://localhost:8000
+
 ## API端点
 
 ### 1. 县域数据 API (`/api/counties`)
@@ -168,6 +172,8 @@ GET /api/stats/overview
 
 ## 示例请求
 
+### 使用curl命令
+
 ```bash
 # 获取所有贫困县
 curl http://localhost:5001/api/counties
@@ -182,3 +188,8 @@ curl http://localhost:5001/api/interviews?county_code=130125&limit=10
 curl "http://localhost:5001/api/compare/economy?county_code=130125&county_code=410526&year=2020"
 ```
 
+### 直接在浏览器中访问
+
+- [获取所有贫困县](http://localhost:5001/api/counties)
+- [获取系统概览统计](http://localhost:5001/api/stats/overview)
+- [获取访谈统计](http://localhost:5001/api/interviews/stats)
