@@ -1,11 +1,17 @@
 # 前端使用说明
 
+## 文件说明
+
+- **`index.html`**：当前主文件（智库政务风格，内嵌JavaScript）
+- **`index_org.html`**：旧版本（Aurora Gradient风格，使用外部 `app.js`）
+- **`app.js`**：旧版本的JavaScript文件（仅 `index_org.html` 使用）
+
 ## 功能特性
 
-- **Aurora Gradient Hero风格**：科技感渐变背景
+- **智库政务风格**：浅色背景，专业报告风格
 - **全屏分页滚动**：使用fullpage.js实现平滑滚动
 - **超大数字展示**：突出核心数据（832个贫困县）
-- **数据可视化**：使用ECharts展示图表
+- **数据可视化**：使用ECharts展示图表（浅色主题）
 - **响应式设计**：适配不同屏幕尺寸
 
 ## 使用方法
@@ -73,21 +79,26 @@ python -m http.server 8000
 - **FullPage.js**：全屏滚动
 - **ECharts 5**：数据可视化
 - **Font Awesome**：图标库
-- **Google Fonts**：字体（Inter, JetBrains Mono）
+- **Google Fonts**：字体（Inter, Noto Serif SC, JetBrains Mono）
+
+## 版本说明
+
+- **当前版本**：`index.html` - 智库政务风格，所有JavaScript代码内嵌在HTML中
+- **历史版本**：`index_org.html` - Aurora Gradient风格，使用外部 `app.js` 文件
 
 ## 自定义配置
 
 ### 修改API地址
 
-编辑 `app.js` 文件：
+编辑 `index.html` 文件，找到内嵌的 JavaScript 代码（约第468行）：
 
 ```javascript
-const API_BASE = 'http://your-api-url:5000/api';
+const API_BASE = 'http://localhost:5001/api';
 ```
 
 ### 修改颜色主题
 
-编辑 `index.html` 中的CSS变量和渐变类。
+编辑 `index.html` 中的CSS变量（`:root` 部分，约第23-30行）和样式类。
 
 ## 注意事项
 

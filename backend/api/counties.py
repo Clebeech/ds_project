@@ -188,3 +188,68 @@ def get_county_population(county_code):
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
+
+@bp.route('/map', methods=['GET'])
+def get_counties_map():
+    """获取地图可视化数据：经纬度、GDP、摘帽状态"""
+    year = request.args.get('year', type=int)  # 可选：指定年份，默认使用最新年份
+    
+    # 如果没有指定年份，使用子查询获取每个县的最新GDP年份
+    if year:
+        sql = """
+            SELECT 
+                c.CountyCode,
+                c.CountyName,
+                c.Province,
+                c.Longitude,
+                c.Latitude,
+                e.GDP,
+                p.ExitYear,
+                CASE WHEN p.ExitYear IS NOT NULL THEN 1 ELSE 0 END as IsExited
+            FROM county c
+            LEFT JOIN county_economy e ON c.CountyCode = e.CountyCode AND e.Year = %s
+            LEFT JOIN poverty_counties p ON c.CountyCode = p.CountyCode
+            WHERE c.Longitude IS NOT NULL 
+              AND c.Latitude IS NOT NULL
+              AND c.Longitude != 0 
+              AND c.Latitude != 0
+        """
+        params = [year]
+    else:
+        # 获取每个县最新年份的GDP
+        sql = """
+            SELECT 
+                c.CountyCode,
+                c.CountyName,
+                c.Province,
+                c.Longitude,
+                c.Latitude,
+                latest_economy.GDP,
+                p.ExitYear,
+                CASE WHEN p.ExitYear IS NOT NULL THEN 1 ELSE 0 END as IsExited
+            FROM county c
+            LEFT JOIN (
+                SELECT e1.CountyCode, e1.GDP, e1.Year
+                FROM county_economy e1
+                INNER JOIN (
+                    SELECT CountyCode, MAX(Year) as MaxYear
+                    FROM county_economy
+                    GROUP BY CountyCode
+                ) e2 ON e1.CountyCode = e2.CountyCode AND e1.Year = e2.MaxYear
+            ) latest_economy ON c.CountyCode = latest_economy.CountyCode
+            LEFT JOIN poverty_counties p ON c.CountyCode = p.CountyCode
+            WHERE c.Longitude IS NOT NULL 
+              AND c.Latitude IS NOT NULL
+              AND c.Longitude != 0 
+              AND c.Latitude != 0
+        """
+        params = []
+    
+    sql += " ORDER BY c.Province, c.CountyName"
+    
+    try:
+        result = execute_query(sql, params)
+        return jsonify({'success': True, 'data': result, 'count': len(result)})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+

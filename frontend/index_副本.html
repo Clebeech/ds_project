@@ -18,8 +18,6 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/fullPage.js/4.0.20/vendors/scrolloverflow.min.js"></script>
     
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
-    <!-- ECharts WordCloud -->
-    <script src="https://cdn.jsdelivr.net/npm/echarts-wordcloud@2.1.0/dist/echarts-wordcloud.min.js"></script>
     
     <style>
         :root {
@@ -204,22 +202,15 @@
             </div>
         </div>
         
-        <div class="section section-bg-light fp-auto-height">
-            <div class="flex items-center justify-center min-h-screen px-8 py-12">
-                <div class="max-w-7xl w-full">
+        <div class="section section-bg-light">
+            <div class="flex items-center justify-center h-screen px-8">
+                <div class="max-w-6xl w-full">
                     <div class="text-center mb-12">
                         <h2 class="section-title">数据概览</h2>
                         <p class="section-subtitle">Overview Statistics</p>
                     </div>
-                    <div id="stats-container" class="grid grid-cols-2 md:grid-cols-4 gap-6 mb-8">
+                    <div id="stats-container" class="grid grid-cols-2 md:grid-cols-4 gap-6">
                         </div>
-                    <div class="report-card bg-white rounded-xl p-6 shadow-sm">
-                        <div class="flex items-center mb-4">
-                            <div class="w-1 h-6 bg-blue-800 mr-3 rounded-full"></div>
-                            <h3 class="text-xl font-bold text-slate-800 font-serif">832个贫困县地理分布</h3>
-                        </div>
-                        <div id="counties-map" style="height: 500px;"></div>
-                    </div>
                 </div>
             </div>
         </div>
@@ -248,7 +239,7 @@
                         </div>
                     </div>
                     
-                    <div id="counties-container" class="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-4 gap-4" style="max-height: 60vh; overflow-y: auto; padding: 4px; padding-right: 16px;">
+                    <div id="counties-container" class="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-4 gap-4" style="max-height: 60vh; overflow-y: auto; padding: 2px;">
                         </div>
                 </div>
             </div>
@@ -256,7 +247,7 @@
         
         <div class="section section-bg-light fp-auto-height">
             <div class="flex items-center justify-center min-h-screen px-8">
-                <div id="county-detail-content" class="max-w-7xl w-full py-12 overflow-y-auto" style="max-height: 100vh; padding-right: 24px; padding-left: 4px;">
+                <div id="county-detail-content" class="max-w-7xl w-full py-12 overflow-y-auto" style="max-height: 100vh;">
                     <div class="flex items-end justify-between mb-10 border-b border-slate-200 pb-6">
                         <div>
                             <h2 class="section-title text-4xl mb-2" id="county-detail-title">县域详情</h2>
@@ -312,17 +303,6 @@
                         <div class="report-card rounded-xl p-6 bg-white">
                             <h4 class="text-lg font-bold text-slate-700 mb-4 border-b border-slate-100 pb-2">主要农作物面积趋势</h4>
                             <div id="agriculture-area-chart" style="height: 300px;"></div>
-                        </div>
-                    </div>
-                    
-                    <!-- 访谈词云部分 -->
-                    <div class="mb-8">
-                        <div class="flex items-center mb-6">
-                            <div class="w-1 h-8 bg-purple-700 mr-3 rounded-full"></div>
-                            <h3 class="text-2xl font-bold text-slate-800 font-serif">访谈关键词云</h3>
-                        </div>
-                        <div class="report-card rounded-xl p-6 bg-white">
-                            <div id="interview-wordcloud" style="height: 400px;"></div>
                         </div>
                     </div>
                 </div>
@@ -534,24 +514,8 @@
             
             // 加载初始数据
             loadOverviewStats();
-            loadCountiesMap();
             loadProvinces();
             loadCounties();
-
-            // 监听窗口大小变化，让所有 ECharts 图表自动调整宽度
-            window.addEventListener('resize', function() {
-                // 找到页面上所有已经被 ECharts 渲染过的 div
-                const charts = document.querySelectorAll('div[_echarts_instance_]');
-                
-                charts.forEach(dom => {
-                    //以此 DOM 获取对应的 ECharts 实例
-                    const instance = echarts.getInstanceByDom(dom);
-                    if (instance) {
-                        // 命令该实例重新计算宽度
-                        instance.resize();
-                    }
-                });
-            });
         });
 
         // 加载概览统计 (新样式)
@@ -610,161 +574,6 @@
             }
         }
 
-        // 加载并渲染地图
-        async function loadCountiesMap() {
-            try {
-                // 1. 并行加载地图数据和县域数据
-                // 优化：使用 100000.json (标准精度) 代替 100000_full.json (高精度)，大幅减少渲染开销
-                const [mapResponse, countiesResponse] = await Promise.all([
-                    fetch('https://geo.datav.aliyun.com/areas_v3/bound/100000.json'),
-                    fetch(`${API_BASE}/counties/map`)
-                ]);
-
-                const mapJson = await mapResponse.json();
-                const result = await countiesResponse.json();
-                
-                if (result.success && result.data.length > 0) {
-                    // 注册地图
-                    echarts.registerMap('china', mapJson);
-                    
-                    const mapData = result.data;
-                    // 销毁旧实例（如果有），防止内存泄漏
-                    const chartDom = document.getElementById('counties-map');
-                    echarts.dispose(chartDom);
-                    const mapChart = echarts.init(chartDom);
-                    
-                    // 准备数据：[经度, 纬度, GDP, 县代码, 县名]
-                    const data = mapData
-                        .filter(d => d.Longitude && d.Latitude)
-                        .map(d => ({
-                            name: d.CountyName,
-                            value: [
-                                parseFloat(d.Longitude),
-                                parseFloat(d.Latitude),
-                                d.GDP || 0,
-                                d.CountyCode
-                            ]
-                        }));
-                    
-                    // 计算GDP范围
-                    const gdpValues = data.map(d => d.value[2]).filter(v => v > 0);
-                    const minGDP = gdpValues.length > 0 ? Math.min(...gdpValues) : 0;
-                    const maxGDP = gdpValues.length > 0 ? Math.max(...gdpValues) : 100000;
-                    
-                    const option = {
-                        backgroundColor: '#f8fafc',
-                        title: {
-                            text: '832个贫困县 GDP 分布热力图',
-                            left: 'center',
-                            top: 20,
-                            textStyle: {
-                                color: '#1e293b',
-                                fontFamily: 'Noto Serif SC',
-                                fontSize: 20
-                            }
-                        },
-                        tooltip: {
-                            trigger: 'item',
-                            backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                            borderColor: '#e2e8f0',
-                            textStyle: { color: '#1e293b' },
-                            formatter: function(params) {
-                                const val = params.value;
-                                const gdp = val[2] ? (val[2] / 10000).toFixed(2) + ' 亿元' : '暂无数据';
-                                return `
-                                    <div class="font-bold mb-1">${params.name}</div>
-                                    <div class="text-sm text-slate-500">GDP: <span class="font-bold text-blue-700">${gdp}</span></div>
-                                    <div class="text-xs text-slate-400 mt-1">点击查看详情</div>
-                                `;
-                            }
-                        },
-                        visualMap: {
-                            min: minGDP,
-                            max: maxGDP / 2,
-                            calculable: true,
-                            realtime: false, // 拖动滑块时不需要实时渲染，松开再渲染
-                            inRange: {
-                                color: ['#3b82f6', '#06b6d4', '#facc15', '#ef4444', '#b91c1c']
-                            },
-                            textStyle: { color: '#64748b' },
-                            left: 'left',
-                            bottom: '20',
-                            text: ['GDP 高', 'GDP 低'],
-                            formatter: function(value) {
-                                return (value / 10000).toFixed(0) + '亿';
-                            }
-                        },
-                        geo: {
-                            map: 'china',
-                            roam: false, // 禁止缩放和平移，固定地图位置
-                            // 使用 layoutCenter 和 layoutSize 确保地图在容器中居中且大小合适
-                            layoutCenter: ['50%', '60%'], // 下移一点 (50% -> 60%)
-                            layoutSize: '100%', // 地图大小占容器的比例
-                            itemStyle: {
-                                areaColor: '#e2e8f0',
-                                borderColor: '#fff',
-                                borderWidth: 1
-                            },
-                            emphasis: {
-                                disabled: true,
-                                itemStyle: { areaColor: '#e2e8f0' }
-                            }
-                        },
-                        series: [
-                            {
-                                name: 'GDP分布',
-                                type: 'scatter',
-                                coordinateSystem: 'geo',
-                                data: data,
-                                // 关闭 large 模式，800个点不需要开启，开启会导致 symbolSize 回调失效
-                                // large: true,
-                                // largeThreshold: 500,
-                                // progressive: 500,
-                                zlevel: 2, // 确保在地图之上
-                                
-                                symbolSize: function(val) {
-                                    if (!val || val.length < 3) return 4;
-                                    const gdp = val[2];
-                                    if (gdp <= 0) return 4;
-                                    // 线性映射：最小5px，最大15px
-                                    const size = 5 + (gdp - minGDP) / (maxGDP - minGDP) * 15;
-                                    return isNaN(size) ? 4 : Math.min(Math.max(size, 4), 20);
-                                },
-                                itemStyle: {
-                                    opacity: 0.9,
-                                    borderColor: 'rgba(255,255,255,0.3)',
-                                    borderWidth: 1
-                                },
-                                emphasis: {
-                                    scale: true,
-                                    itemStyle: {
-                                        borderColor: '#fff',
-                                        borderWidth: 2,
-                                        opacity: 1
-                                    }
-                                }
-                            }
-                        ]
-                    };
-                    
-                    mapChart.setOption(option);
-                    
-                    // 点击跳转
-                    mapChart.on('click', function(params) {
-                        if (params.value && params.value[3]) {
-                            showCountyDetail(params.value[3]);
-                        }
-                    });
-                    
-                    window.addEventListener('resize', () => mapChart.resize());
-                }
-            } catch (error) {
-                console.error('加载地图数据失败:', error);
-                document.getElementById('counties-map').innerHTML = 
-                    '<div class="flex items-center justify-center h-full text-slate-400">地图加载失败，请检查网络连接</div>';
-            }
-        }
-
         // 加载省份列表
         async function loadProvinces() {
             try {
@@ -793,30 +602,8 @@
             } catch (error) { console.error(error); }
         }
 
-        // 加载县列表 (带骨架屏)
+        // 加载县列表 (新样式)
         async function loadCounties(filters = {}) {
-            const container = document.getElementById('counties-container');
-            
-            // 1. 渲染骨架屏 (Loading State)
-            // 生成 8 个闪烁的卡片占位
-            const skeletonHTML = Array(8).fill(0).map(() => `
-                <div class="report-card bg-white rounded-lg p-5 border border-slate-100">
-                    <div class="animate-pulse flex space-x-4">
-                        <div class="flex-1 space-y-4 py-1">
-                            <div class="flex justify-between">
-                                <div class="h-6 bg-slate-200 rounded w-1/3"></div>
-                                <div class="h-6 bg-slate-200 rounded w-1/4"></div>
-                            </div>
-                            <div class="h-4 bg-slate-200 rounded w-1/2"></div>
-                            <div class="space-y-2 pt-2">
-                                <div class="h-4 bg-slate-200 rounded"></div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            `).join('');
-            container.innerHTML = skeletonHTML;
-
             try {
                 const params = new URLSearchParams();
                 if (filters.region) params.append('region', filters.region);
@@ -826,11 +613,11 @@
                 const result = await response.json();
                 
                 if (result.success) {
+                    const container = document.getElementById('counties-container');
                     const validCounties = result.data.filter(county => 
                         county.CountyName && !county.CountyName.startsWith('县代码')
                     );
                     
-                    // 排序逻辑...
                     validCounties.sort((a, b) => {
                         const aCompleteness = a.DataCompleteness || 0;
                         const bCompleteness = b.DataCompleteness || 0;
@@ -847,22 +634,21 @@
                         return;
                     }
                     
-                    // 2. 渲染真实数据 (Real Data)
                     container.innerHTML = counties.map(county => `
-                        <div class="report-card bg-white rounded-lg p-5 cursor-pointer group hover:border-blue-300 transition-all duration-300" onclick="showCountyDetail('${county.CountyCode}')">
+                        <div class="report-card bg-white rounded-lg p-5 cursor-pointer group hover:border-blue-300" onclick="showCountyDetail('${county.CountyCode}')">
                             <div class="flex justify-between items-start mb-3">
                                 <div class="font-bold text-lg text-slate-800 font-serif group-hover:text-blue-800 transition-colors">
                                     ${county.CountyName || county.CountyCode}
                                 </div>
-                                ${county.ExitYear ? `<span class="px-2 py-0.5 bg-green-50 text-green-700 text-xs font-bold rounded border border-green-100">摘帽 ${county.ExitYear}</span>` : ''}
+                                ${county.ExitYear ? `<span class="px-2 py-0.5 bg-green-100 text-green-800 text-xs font-bold rounded border border-green-200">摘帽 ${county.ExitYear}</span>` : ''}
                             </div>
                             <div class="text-sm text-slate-500 mb-3 flex items-center">
                                 <i class="fas fa-map-marker-alt mr-2 text-slate-300"></i> 
                                 ${county.Province || '未知'} · ${county.City || '未知'}
                             </div>
-                            <div class="flex justify-between items-center pt-3 border-t border-slate-50">
+                            <div class="flex justify-between items-center pt-3 border-t border-slate-100">
                                 <span class="text-xs text-slate-400 bg-slate-50 px-2 py-1 rounded">${county.Region || '未知区域'}</span>
-                                <span class="text-xs text-blue-600 font-medium opacity-0 -translate-x-2 group-hover:translate-x-0 group-hover:opacity-100 transition-all">查看详情 <i class="fas fa-arrow-right ml-1"></i></span>
+                                <span class="text-xs text-blue-600 font-medium opacity-0 group-hover:opacity-100 transition-opacity">查看详情 <i class="fas fa-arrow-right ml-1"></i></span>
                             </div>
                         </div>
                     `).join('');
