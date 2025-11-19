@@ -18,6 +18,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/fullPage.js/4.0.20/vendors/scrolloverflow.min.js"></script>
     
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/echarts-wordcloud@2.1.0/dist/echarts-wordcloud.min.js"></script>
     
     <style>
         :root {
@@ -239,6 +240,9 @@
                         <button onclick="fullpage_api.moveTo(3)" class="px-8 py-3 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 rounded shadow hover:shadow-md font-medium transition flex items-center">
                             <i class="fas fa-chart-line mr-2 text-sm"></i> 县域分析
                         </button>
+                        <button onclick="fullpage_api.moveTo(7)" class="px-8 py-3 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 rounded shadow hover:shadow-md font-medium transition flex items-center">
+                            <i class="fas fa-users mr-2 text-sm"></i> 调研团队
+                        </button>
                     </div>
                     
                     <div class="absolute bottom-8 left-0 right-0 text-center text-slate-400 text-xs uppercase tracking-widest">
@@ -257,12 +261,23 @@
                     </div>
                     <div id="stats-container" class="grid grid-cols-2 md:grid-cols-4 gap-6 mb-8">
                         </div>
-                    <div class="report-card bg-white rounded-xl p-6 shadow-sm">
-                        <div class="flex items-center mb-4">
-                            <div class="w-1 h-6 bg-blue-800 mr-3 rounded-full"></div>
-                            <h3 class="text-xl font-bold text-slate-800 font-serif">832个贫困县地理分布</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <!-- 左半边：地理分布 -->
+                        <div class="report-card bg-white rounded-xl p-6 shadow-sm">
+                            <div class="flex items-center mb-4">
+                                <div class="w-1 h-6 bg-blue-800 mr-3 rounded-full"></div>
+                                <h3 class="text-xl font-bold text-slate-800 font-serif">832个贫困县地理分布</h3>
+                            </div>
+                            <div id="counties-map" style="height: 500px;"></div>
                         </div>
-                        <div id="counties-map" style="height: 500px;"></div>
+                        <!-- 右半边：访谈词云 -->
+                        <div class="report-card bg-white rounded-xl p-6 shadow-sm">
+                            <div class="flex items-center mb-4">
+                                <div class="w-1 h-6 bg-purple-700 mr-3 rounded-full"></div>
+                                <h3 class="text-xl font-bold text-slate-800 font-serif">访谈关键词词云</h3>
+                            </div>
+                            <div id="wordcloud-chart" style="height: 500px;"></div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -440,6 +455,38 @@
                 </div>
             </div>
         </div>
+
+        <!-- Section 7: 调研团队 -->
+        <div class="section section-bg-alt">
+            <div class="flex items-center justify-center h-screen px-8">
+                <div class="max-w-7xl w-full">
+                    <div class="flex justify-between items-end mb-8">
+                        <div>
+                            <h2 class="section-title text-4xl mb-2">调研团队</h2>
+                            <p class="section-subtitle">Survey Team</p>
+                        </div>
+                        <div class="flex gap-6 text-sm text-slate-500" id="surveyor-stats-bar">
+                            <!-- Stats will be loaded here -->
+                        </div>
+                    </div>
+                    
+                    <div class="mb-6 flex gap-4 bg-white p-4 rounded-lg shadow-sm border border-slate-200">
+                        <div class="relative flex-1">
+                            <i class="fas fa-search absolute left-3 top-3 text-slate-400"></i>
+                            <input type="text" id="surveyor-search" placeholder="搜索调研员姓名或ID..." class="w-full pl-10 px-4 py-2 input-standard rounded-md">
+                        </div>
+                        <input type="text" id="surveyor-county-code" placeholder="按县代码筛选" class="w-40 px-4 py-2 input-standard rounded-md">
+                        <button onclick="loadSurveyors()" class="px-6 py-2 bg-blue-900 hover:bg-blue-800 text-white rounded-md font-semibold shadow-sm transition">
+                            <i class="fas fa-filter mr-2"></i> 筛选
+                        </button>
+                    </div>
+                    
+                    <div id="surveyors-container" class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 overflow-y-auto" style="max-height: 60vh; padding: 4px;">
+                        <!-- Cards will be loaded here -->
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
     
     <div id="county-selector-modal" class="modal-backdrop fixed inset-0 z-[9999]" style="display: none;">
@@ -610,6 +657,84 @@
                         </div>
                     </form>
                     <div id="create-interview-msg" class="mt-4 text-center hidden font-medium"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 调研员详情模态框 -->
+    <div id="surveyor-detail-modal" class="modal-backdrop fixed inset-0 z-[9999]" style="display: none;">
+        <div class="flex items-center justify-center h-full w-full p-4">
+            <div class="modal-content rounded-xl p-8 max-w-lg w-full relative">
+                <div class="flex justify-between items-start mb-6 border-b border-slate-100 pb-4">
+                    <div class="flex items-center gap-4">
+                        <div class="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-2xl font-bold" id="detail-avatar">
+                            <!-- Initials -->
+                        </div>
+                        <div>
+                            <h3 class="text-2xl font-bold font-serif text-slate-800" id="detail-name">姓名</h3>
+                            <p class="text-slate-500 text-sm" id="detail-id">ID</p>
+                        </div>
+                    </div>
+                    <button onclick="closeSurveyorDetail()" class="text-slate-400 hover:text-slate-700 transition">
+                        <i class="fas fa-times text-2xl"></i>
+                    </button>
+                </div>
+                
+                <div class="space-y-4">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="text-xs font-bold text-slate-400 uppercase tracking-wider">所属分队</label>
+                            <p class="font-medium text-slate-700" id="detail-team">--</p>
+                        </div>
+                        <div>
+                            <label class="text-xs font-bold text-slate-400 uppercase tracking-wider">调研角色</label>
+                            <p class="font-medium text-slate-700" id="detail-role">--</p>
+                        </div>
+                        <div>
+                            <label class="text-xs font-bold text-slate-400 uppercase tracking-wider">学历/专业</label>
+                            <p class="font-medium text-slate-700" id="detail-edu">--</p>
+                        </div>
+                        <div>
+                            <label class="text-xs font-bold text-slate-400 uppercase tracking-wider">所属院系</label>
+                            <p class="font-medium text-slate-700" id="detail-dept">--</p>
+                        </div>
+                    </div>
+
+                    <div class="bg-slate-50 p-4 rounded-lg border border-slate-100">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-sm font-bold text-slate-600">负责县域</span>
+                            <span class="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full" id="detail-county-code">--</span>
+                        </div>
+                        <p class="text-lg font-serif font-bold text-blue-900" id="detail-county-name">--</p>
+                    </div>
+
+                    <div>
+                        <label class="text-xs font-bold text-slate-400 uppercase tracking-wider">联系方式 <span class="font-normal text-xs lowercase ml-1">(仅特定角色可见)</span></label>
+                        <div class="flex flex-col gap-1 mt-1">
+                            <div class="flex items-center gap-2 text-sm text-slate-700">
+                                <i class="fas fa-phone-alt w-5 text-slate-400"></i>
+                                <span id="detail-phone">***********</span>
+                            </div>
+                            <div class="flex items-center gap-2 text-sm text-slate-700">
+                                <i class="fas fa-envelope w-5 text-slate-400"></i>
+                                <span id="detail-email">***********</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="text-xs font-bold text-slate-400 uppercase tracking-wider">专长 & 备注</label>
+                        <p class="text-sm text-slate-600 mt-1 leading-relaxed" id="detail-expertise">--</p>
+                        <p class="text-sm text-slate-500 mt-2 italic border-t border-slate-100 pt-2" id="detail-notes">--</p>
+                    </div>
+
+                    <div class="pt-4 border-t border-slate-100 mt-4">
+                        <button onclick="viewSurveyorInterviews()" class="w-full px-6 py-3 bg-blue-900 hover:bg-blue-800 text-white rounded-md font-bold shadow-md transition flex items-center justify-center gap-2">
+                            <i class="fas fa-file-alt"></i>
+                            <span>查看该调研员的访谈记录</span>
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -917,6 +1042,7 @@
             // 加载初始数据
             loadOverviewStats();
             loadCountiesMap();
+            loadWordcloud(); // 加载词云图
             loadProvinces();
             loadCounties();
 
@@ -1581,6 +1707,83 @@
             closeInterviewFilter();
         }
 
+        let wordcloudChart = null;
+
+        async function loadWordcloud() {
+            try {
+                // 数据概览页面的词云不需要筛选条件，展示所有访谈的关键词
+                const params = new URLSearchParams();
+                params.append('limit', '50');
+                
+                const response = await fetch(`${API_BASE}/interviews/wordcloud?${params}`);
+                const result = await response.json();
+                
+                if (result.success && result.data && result.data.length > 0) {
+                    const chartDom = document.getElementById('wordcloud-chart');
+                    if (!chartDom) return;
+                    
+                    if (wordcloudChart) {
+                        wordcloudChart.dispose();
+                    }
+                    wordcloudChart = echarts.init(chartDom);
+                    
+                    const option = {
+                        ...CHART_THEME,
+                        series: [{
+                            type: 'wordCloud',
+                            gridSize: 8,
+                            sizeRange: [14, 60],
+                            rotationRange: [-45, 45],
+                            shape: 'circle',
+                            width: '100%',
+                            height: '100%',
+                            textStyle: {
+                                fontFamily: 'Noto Serif SC, serif',
+                                fontWeight: 'bold',
+                                color: function() {
+                                    const colors = ['#1e3a8a', '#2563eb', '#3b82f6', '#60a5fa', '#93c5fd', '#6366f1', '#8b5cf6'];
+                                    return colors[Math.floor(Math.random() * colors.length)];
+                                }
+                            },
+                            emphasis: {
+                                textStyle: {
+                                    shadowBlur: 10,
+                                    shadowColor: '#333'
+                                }
+                            },
+                            data: result.data
+                        }]
+                    };
+                    
+                    wordcloudChart.setOption(option);
+                    
+                    // 点击词云中的词，跳转到访谈页面并筛选
+                    wordcloudChart.off('click'); // 移除旧的监听器
+                    wordcloudChart.on('click', function(params) {
+                        // 跳转到访谈页面（Section 5）
+                        if (typeof fullpage_api !== 'undefined') {
+                            fullpage_api.moveTo(5);
+                            setTimeout(() => {
+                                // 设置筛选条件并加载访谈
+                                interviewFilters.keyword = params.name;
+                                interviewFilters.county_code = '';
+                                interviewFilters.surveyor_id = '';
+                                document.getElementById('interview-search').value = params.name;
+                                loadInterviews();
+                            }, 500);
+                        }
+                    });
+                } else {
+                    const chartDom = document.getElementById('wordcloud-chart');
+                    if (chartDom) {
+                        chartDom.innerHTML = '<div class="flex items-center justify-center h-full text-slate-400 text-sm">暂无数据</div>';
+                    }
+                }
+            } catch (error) {
+                console.error('Wordcloud load error:', error);
+            }
+        }
+
         async function loadInterviews(quickKeyword = '') {
             try {
                 const params = new URLSearchParams();
@@ -1891,11 +2094,149 @@
         document.getElementById('selector-province')?.addEventListener('change', e => loadCountySelectorList({ region: document.getElementById('selector-region').value, province: e.target.value }));
         document.getElementById('selector-search')?.addEventListener('input', () => loadCountySelectorList());
 
+        // 调研员搜索输入框回车键监听
+        document.getElementById('surveyor-search')?.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                loadSurveyors();
+            }
+        });
+
+        async function loadSurveyors(options = {}) {
+            const keyword = document.getElementById('surveyor-search')?.value || '';
+            const county_code = document.getElementById('surveyor-county-code')?.value || '';
+            
+            try {
+                const params = new URLSearchParams();
+                if (keyword) params.append('keyword', keyword);
+                if (county_code) params.append('county_code', county_code);
+                
+                const res = await fetch(`${API_BASE}/surveyors?${params}`);
+                const { data } = await res.json();
+                
+                const container = document.getElementById('surveyors-container');
+                if (!container) return;
+                
+                container.innerHTML = data.map(s => `
+                    <div class="report-card bg-white p-6 rounded-xl shadow-sm cursor-pointer hover:shadow-md transition group" onclick='openSurveyorDetail(${JSON.stringify(s)})'>
+                        <div class="flex items-start justify-between mb-4">
+                            <div class="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center text-slate-500 font-bold text-lg group-hover:bg-blue-100 group-hover:text-blue-600 transition-colors">
+                                ${s.Name.charAt(0)}
+                            </div>
+                            <span class="text-xs font-bold bg-slate-100 text-slate-500 px-2 py-1 rounded uppercase">${s.SurveyorID}</span>
+                        </div>
+                        <h3 class="text-lg font-bold text-slate-800 mb-1">${s.Name}</h3>
+                        <p class="text-sm text-blue-600 font-medium mb-3">${s.Role || '调研员'}</p>
+                        
+                        <div class="space-y-2 text-sm text-slate-500">
+                            <div class="flex items-center gap-2">
+                                <i class="fas fa-map-marker-alt w-4 text-center text-slate-400"></i>
+                                <span class="truncate">${s.CountyName || '未分配'}</span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <i class="fas fa-check-circle w-4 text-center text-slate-400"></i>
+                                <span>已访谈: <span class="font-bold text-slate-700">${s.CompletedInterviews}</span></span>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+
+                // Load stats
+                const statsRes = await fetch(`${API_BASE}/surveyors/stats`);
+                const stats = (await statsRes.json()).data;
+                const statsBar = document.getElementById('surveyor-stats-bar');
+                if (statsBar && stats) {
+                    statsBar.innerHTML = `
+                        <div><span class="font-bold text-slate-800">${stats.total_surveyors}</span> 名成员</div>
+                        <div><span class="font-bold text-slate-800">${stats.total_teams}</span> 个分队</div>
+                        <div><span class="font-bold text-slate-800">${stats.covered_counties}</span> 个覆盖县</div>
+                        <div>累计访谈 <span class="font-bold text-blue-600">${stats.total_interviews}</span> 次</div>
+                    `;
+                }
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        function openSurveyorDetail(s) {
+            currentSurveyorID = s.SurveyorID; // 保存当前调研员ID
+            
+            document.getElementById('detail-avatar').textContent = s.Name.charAt(0);
+            document.getElementById('detail-name').textContent = s.Name;
+            document.getElementById('detail-id').textContent = s.SurveyorID;
+            document.getElementById('detail-team').textContent = s.TeamID || '未分配';
+            document.getElementById('detail-role').textContent = s.Role || '未知';
+            document.getElementById('detail-edu').textContent = `${s.Education || ''} ${s.Major || ''}`;
+            document.getElementById('detail-dept').textContent = s.Department || '--';
+            document.getElementById('detail-county-code').textContent = s.CountyCode || 'N/A';
+            document.getElementById('detail-county-name').textContent = s.CountyName || '未分配负责县域';
+            document.getElementById('detail-expertise').textContent = s.Expertise || '暂无专长描述';
+            document.getElementById('detail-notes').textContent = s.Notes || '无备注';
+            
+            // Privacy fields
+            const phoneEl = document.getElementById('detail-phone');
+            const emailEl = document.getElementById('detail-email');
+            
+            if (s.Phone) {
+                phoneEl.textContent = s.Phone;
+                phoneEl.classList.remove('text-slate-400', 'italic');
+                phoneEl.classList.add('text-slate-700', 'font-mono');
+            } else {
+                phoneEl.textContent = '*********** (无权限查看)';
+                phoneEl.classList.add('text-slate-400', 'italic');
+                phoneEl.classList.remove('text-slate-700', 'font-mono');
+            }
+
+            if (s.Email) {
+                emailEl.textContent = s.Email;
+                emailEl.classList.remove('text-slate-400', 'italic');
+                emailEl.classList.add('text-slate-700', 'font-mono');
+            } else {
+                emailEl.textContent = '*********** (无权限查看)';
+                emailEl.classList.add('text-slate-400', 'italic');
+                emailEl.classList.remove('text-slate-700', 'font-mono');
+            }
+
+            const modal = document.getElementById('surveyor-detail-modal');
+            modal.style.display = 'flex';
+            if (typeof fullpage_api !== 'undefined') fullpage_api.setAllowScrolling(false);
+        }
+
+        function closeSurveyorDetail() {
+            const modal = document.getElementById('surveyor-detail-modal');
+            modal.style.display = 'none';
+            if (typeof fullpage_api !== 'undefined') fullpage_api.setAllowScrolling(true);
+        }
+
+        let currentSurveyorID = null; // 存储当前查看的调研员ID
+
+        function viewSurveyorInterviews() {
+            if (!currentSurveyorID) return;
+            
+            // 设置筛选条件
+            interviewFilters.surveyor_id = currentSurveyorID;
+            interviewFilters.county_code = '';
+            interviewFilters.keyword = '';
+            
+            // 关闭详情模态框
+            closeSurveyorDetail();
+            
+            // 跳转到访谈记录页面（Section 5）并加载数据
+            if (typeof fullpage_api !== 'undefined') {
+                fullpage_api.moveTo(5);
+                setTimeout(() => {
+                    loadInterviews();
+                }, 500); // 等待页面滚动完成后再加载数据
+            } else {
+                loadInterviews();
+            }
+        }
+
         // 监听图表类型变化
         document.getElementById('compare-metric')?.addEventListener('change', () => { if(selectedCountiesForCompare.length>=2) loadCompareData(); });
         document.getElementById('compare-chart-type')?.addEventListener('change', () => { if(selectedCountiesForCompare.length>=2) loadCompareData(); });
 
         setTimeout(loadInterviews, 1000);
+        setTimeout(loadSurveyors, 1000); // 页面加载时自动加载调研员列表
     </script>
 </body>
 </html>

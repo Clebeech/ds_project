@@ -3,10 +3,72 @@
 """
 from flask import Blueprint, jsonify, request, session
 from backend.db import execute_query
-from backend.api.auth import login_required
+from backend.api.auth import login_required, admin_required
+import jieba
+import re
+from collections import Counter
 
 bp = Blueprint('interviews', __name__, url_prefix='/api/interviews')
 
+import datetime
+import uuid
+
+# 中文停用词列表（简化版）
+STOP_WORDS = {'的', '了', '在', '是', '我', '有', '和', '就', '不', '人', '都', '一', '一个', '上', '也', '很', '到', '说', '要', '去', '你', '会', '着', '没有', '看', '好', '自己', '这'}
+
+# ... existing imports ...
+
+@bp.route('', methods=['POST'])
+@login_required
+def create_interview():
+    """创建访谈记录 (Admin or Surveyor)"""
+    if session.get('role') not in ['admin', 'surveyor']:
+         return jsonify({'success': False, 'error': 'Forbidden: Permission denied', 'code': 403}), 403
+         
+    data = request.get_json()
+    
+    # 必填字段
+    required_fields = ['surveyor_id', 'county_code', 'content']
+    for field in required_fields:
+        if not data.get(field):
+            return jsonify({'success': False, 'error': f'Missing field: {field}'}), 400
+            
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        # Generate ID
+        interview_id = f"I{datetime.datetime.now().strftime('%Y%m%d%H%M%S')}"
+        
+        # Insert
+        sql = """
+            INSERT INTO interviews (
+                InterviewID, SurveyorID, CountyCode, IntervieweeID,
+                IntervieweeName, IntervieweeInfo, Content, InterviewDate,
+                InterviewLocation, Quality
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """
+        cursor.execute(sql, (
+            interview_id,
+            data['surveyor_id'],
+            data['county_code'],
+            data.get('interviewee_id'),
+            data.get('interviewee_name'),
+            data.get('interviewee_info'),
+            data['content'],
+            data.get('date') or datetime.date.today(),
+            data.get('location'),
+            data.get('quality', 5.0)
+        ))
+        
+        conn.commit()
+        
+        return jsonify({'success': True, 'interview_id': interview_id})
+    except Exception as e:
+        conn.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+    finally:
+        cursor.close()
+        conn.close()
 
 @bp.route('', methods=['GET'])
 def get_interviews():
@@ -129,6 +191,59 @@ def get_interview_stats():
     try:
         result = execute_query(sql, params)
         return jsonify({'success': True, 'data': result[0] if result else {}})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@bp.route('/wordcloud', methods=['GET'])
+def get_wordcloud():
+    """获取访谈词云数据"""
+    county_code = request.args.get('county_code')
+    surveyor_id = request.args.get('surveyor_id')
+    limit = request.args.get('limit', type=int, default=50)
+    
+    # 构建查询条件
+    sql = "SELECT Content FROM interviews WHERE Content IS NOT NULL AND Content != ''"
+    params = []
+    
+    if county_code:
+        sql += " AND CountyCode = %s"
+        params.append(county_code)
+    if surveyor_id:
+        sql += " AND SurveyorID = %s"
+        params.append(surveyor_id)
+    
+    try:
+        result = execute_query(sql, params)
+        
+        # 合并所有访谈内容
+        all_text = ' '.join([row.get('Content', '') or '' for row in result])
+        
+        if not all_text:
+            return jsonify({'success': True, 'data': []})
+        
+        # 使用jieba分词
+        words = jieba.cut(all_text)
+        
+        # 过滤：只保留长度>=2的中文词，排除停用词和纯数字
+        filtered_words = []
+        for word in words:
+            word = word.strip()
+            if (len(word) >= 2 and 
+                re.match(r'^[\u4e00-\u9fa5]+$', word) and  # 只保留中文
+                word not in STOP_WORDS):
+                filtered_words.append(word)
+        
+        # 统计词频
+        word_freq = Counter(filtered_words)
+        
+        # 转换为词云格式 [{name: '词', value: 频次}]
+        wordcloud_data = [
+            {'name': word, 'value': count}
+            for word, count in word_freq.most_common(limit)
+        ]
+        
+        return jsonify({'success': True, 'data': wordcloud_data})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 

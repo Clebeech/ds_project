@@ -24,6 +24,56 @@ def admin_required(view):
         return view(**kwargs)
     return wrapped_view
 
+from werkzeug.security import check_password_hash, generate_password_hash
+
+# ... existing imports ...
+
+@bp.route('/register', methods=['POST'])
+@admin_required
+def register():
+    """创建新用户 (Admin only)"""
+    data = request.get_json()
+    username = data.get('username')
+    password = data.get('password')
+    role = data.get('role', 'analyst')
+
+    if not username or not password:
+        return jsonify({'success': False, 'error': '用户名和密码不能为空'}), 400
+    
+    if role not in ['admin', 'analyst', 'guest']:
+        return jsonify({'success': False, 'error': '无效的角色'}), 400
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        # Check if user exists
+        cursor.execute("SELECT user_id FROM users WHERE username = %s", (username,))
+        if cursor.fetchone():
+            return jsonify({'success': False, 'error': '用户已存在'}), 400
+
+        # Create user
+        pwd_hash = generate_password_hash(password)
+        cursor.execute(
+            "INSERT INTO users (username, password_hash, role) VALUES (%s, %s, %s)",
+            (username, pwd_hash, role)
+        )
+        user_id = cursor.lastrowid
+        
+        # Log action
+        cursor.execute(
+            "INSERT INTO access_logs (user_id, action, ip_address) VALUES (%s, %s, %s)",
+            (session['user_id'], f'CREATE_USER_{username}', request.remote_addr)
+        )
+        
+        conn.commit()
+        return jsonify({'success': True, 'user_id': user_id})
+    except Exception as e:
+        conn.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
 @bp.route('/login', methods=['POST'])
 def login():
     data = request.get_json()
