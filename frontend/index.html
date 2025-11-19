@@ -305,6 +305,9 @@
                             <i class="fas fa-search absolute left-3 top-3 text-slate-400"></i>
                             <input type="text" id="search-input" placeholder="输入县名搜索..." class="w-full pl-10 px-4 py-2 input-standard rounded-md">
                         </div>
+                        <button onclick="exportCounties()" id="export-counties-btn" class="hidden is-logged-in px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md font-semibold shadow-sm transition flex items-center whitespace-nowrap">
+                            <i class="fas fa-download mr-2"></i> 导出CSV
+                        </button>
                     </div>
                     
                     <div id="counties-container" class="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-4 gap-4" style="max-height: 60vh; overflow-y: auto; padding: 4px; padding-right: 16px;">
@@ -393,6 +396,9 @@
                             <i class="fas fa-search absolute left-3 top-3 text-slate-400"></i>
                             <input type="text" id="interview-search" placeholder="搜索访谈内容关键词..." class="w-full pl-10 px-4 py-2 input-standard rounded-md">
                         </div>
+                        <button onclick="exportInterviews()" id="export-interviews-btn" class="hidden is-logged-in px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md font-semibold shadow-sm transition flex items-center">
+                            <i class="fas fa-download mr-2"></i> 导出CSV
+                        </button>
                     </div>
                     
                     <div id="interviews-container" class="space-y-4 pr-2" style="max-height: 60vh; overflow-y: auto;">
@@ -478,6 +484,9 @@
                         <input type="text" id="surveyor-county-code" placeholder="按县代码筛选" class="w-40 px-4 py-2 input-standard rounded-md">
                         <button onclick="loadSurveyors()" class="px-6 py-2 bg-blue-900 hover:bg-blue-800 text-white rounded-md font-semibold shadow-sm transition">
                             <i class="fas fa-filter mr-2"></i> 筛选
+                        </button>
+                        <button onclick="exportSurveyors()" id="export-surveyors-btn" class="hidden is-logged-in px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md font-semibold shadow-sm transition flex items-center">
+                            <i class="fas fa-download mr-2"></i> 导出CSV
                         </button>
                     </div>
                     
@@ -793,6 +802,14 @@
                 
                 document.body.classList.add('is-logged-in');
                 
+                // 显示导出按钮
+                const exportBtns = document.querySelectorAll('[id^="export-"]');
+                exportBtns.forEach(btn => {
+                    if (btn.classList.contains('is-logged-in')) {
+                        btn.classList.remove('hidden');
+                    }
+                });
+                
                 // Clean up old admin button if exists
                 const existingAdminBtn = document.getElementById('admin-btn');
                 if (existingAdminBtn) existingAdminBtn.remove();
@@ -816,6 +833,14 @@
                 loginBtn.classList.remove('hidden');
                 
                 document.body.classList.remove('is-logged-in', 'is-admin');
+                
+                // 隐藏导出按钮
+                const exportBtns = document.querySelectorAll('[id^="export-"]');
+                exportBtns.forEach(btn => {
+                    if (btn.classList.contains('is-logged-in')) {
+                        btn.classList.add('hidden');
+                    }
+                });
             }
         }
 
@@ -2237,6 +2262,109 @@
 
         setTimeout(loadInterviews, 1000);
         setTimeout(loadSurveyors, 1000); // 页面加载时自动加载调研员列表
+
+        // 导出功能
+        async function exportCounties() {
+            try {
+                const region = document.getElementById('region-filter')?.value || '';
+                const exitYear = document.getElementById('exit-year-filter')?.value || '';
+                
+                const params = new URLSearchParams();
+                if (region) params.append('region', region);
+                if (exitYear) params.append('exit_year', exitYear);
+                
+                const url = `${API_BASE}/export/counties${params.toString() ? '?' + params.toString() : ''}`;
+                
+                // 使用fetch下载文件
+                const response = await fetch(url, {
+                    credentials: 'include'
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    alert('导出失败: ' + (error.error || '未知错误'));
+                    return;
+                }
+                
+                const blob = await response.blob();
+                const downloadUrl = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = downloadUrl;
+                a.download = `counties_${new Date().getTime()}.csv`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(downloadUrl);
+            } catch (e) {
+                console.error('Export error:', e);
+                alert('导出失败: ' + e.message);
+            }
+        }
+
+        async function exportInterviews() {
+            try {
+                const countyCode = interviewFilters?.county_code || '';
+                const surveyorID = interviewFilters?.surveyor_id || '';
+                
+                const params = new URLSearchParams();
+                if (countyCode) params.append('county_code', countyCode);
+                if (surveyorID) params.append('surveyor_id', surveyorID);
+                
+                const url = `${API_BASE}/export/interviews${params.toString() ? '?' + params.toString() : ''}`;
+                
+                const response = await fetch(url, {
+                    credentials: 'include'
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    alert('导出失败: ' + (error.error || '未知错误'));
+                    return;
+                }
+                
+                const blob = await response.blob();
+                const downloadUrl = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = downloadUrl;
+                a.download = `interviews_${new Date().getTime()}.csv`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(downloadUrl);
+            } catch (e) {
+                console.error('Export error:', e);
+                alert('导出失败: ' + e.message);
+            }
+        }
+
+        async function exportSurveyors() {
+            try {
+                const url = `${API_BASE}/export/surveyors`;
+                
+                const response = await fetch(url, {
+                    credentials: 'include'
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    alert('导出失败: ' + (error.error || '未知错误'));
+                    return;
+                }
+                
+                const blob = await response.blob();
+                const downloadUrl = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = downloadUrl;
+                a.download = `surveyors_${new Date().getTime()}.csv`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(downloadUrl);
+            } catch (e) {
+                console.error('Export error:', e);
+                alert('导出失败: ' + e.message);
+            }
+        }
     </script>
 </body>
 </html>

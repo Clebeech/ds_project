@@ -1,49 +1,52 @@
 """
 县域数据API
 """
+import pymysql
 from flask import Blueprint, jsonify, request
-from backend.db import execute_query
+from backend.db import execute_query, get_db_connection
 
 bp = Blueprint('counties', __name__, url_prefix='/api/counties')
 
 
 @bp.route('', methods=['GET'])
 def get_counties():
-    """获取县列表，优先返回数据完整的县"""
+    """获取县列表，使用视图简化查询"""
     region = request.args.get('region')
     exit_year = request.args.get('exit_year')
     province = request.args.get('province')
     
+    # 使用视图 v_county_complete_info 简化查询
     sql = """
-        SELECT c.CountyCode, c.CountyName, c.Province, c.City,
-               c.Longitude, c.Latitude, p.ExitYear, p.Region,
-               -- 数据完整性评分：检查是否有经济数据、农业数据、农作物数据
+        SELECT CountyCode, CountyName, Province, City,
+               Longitude, Latitude, ExitYear, Region,
+               GDP, PerCapitaGDP, RuralDisposableIncome,
+               InterviewCount,
+               -- 数据完整性评分：基于视图中的指标
                (
-                   (CASE WHEN EXISTS(SELECT 1 FROM county_economy WHERE CountyCode = c.CountyCode) THEN 1 ELSE 0 END) +
-                   (CASE WHEN EXISTS(SELECT 1 FROM county_agriculture WHERE CountyCode = c.CountyCode) THEN 1 ELSE 0 END) +
-                   (CASE WHEN EXISTS(SELECT 1 FROM crop_area WHERE CountyCode = c.CountyCode) THEN 1 ELSE 0 END)
+                   CASE WHEN GDP IS NOT NULL THEN 1 ELSE 0 END +
+                   CASE WHEN AgriOutputValue IS NOT NULL THEN 1 ELSE 0 END +
+                   CASE WHEN InterviewCount > 0 THEN 1 ELSE 0 END
                ) as DataCompleteness
-        FROM county c
-        LEFT JOIN poverty_counties p ON c.CountyCode = p.CountyCode
+        FROM v_county_complete_info
         WHERE 1=1
     """
     params = []
     
     if region:
-        sql += " AND p.Region = %s"
+        sql += " AND Region = %s"
         params.append(region)
     if exit_year:
-        sql += " AND p.ExitYear = %s"
+        sql += " AND ExitYear = %s"
         params.append(int(exit_year))
     if province:
-        sql += " AND c.Province = %s"
+        sql += " AND Province = %s"
         params.append(province)
     
-    sql += " ORDER BY DataCompleteness DESC, p.ExitYear, c.Province, c.CountyName"
+    sql += " ORDER BY DataCompleteness DESC, ExitYear, Province, CountyName"
     
     try:
         result = execute_query(sql, params)
-        return jsonify({'success': True, 'data': result, 'count': len(result)})
+        return jsonify({'success': True, 'data': result, 'count': len(result), 'note': 'Using view: v_county_complete_info'})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
@@ -67,6 +70,32 @@ def get_county_detail(county_code):
             return jsonify({'success': False, 'error': '县代码不存在'}), 404
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@bp.route('/<county_code>/report', methods=['GET'])
+def get_county_report(county_code):
+    """获取县域综合报告（使用存储过程）"""
+    conn = get_db_connection()
+    cursor = conn.cursor(pymysql.cursors.DictCursor)
+    
+    try:
+        # 调用存储过程
+        cursor.callproc('sp_get_county_comprehensive_report', (county_code,))
+        result = cursor.fetchall()
+        
+        if result:
+            return jsonify({
+                'success': True, 
+                'data': result[0] if len(result) == 1 else result,
+                'note': 'Using stored procedure: sp_get_county_comprehensive_report'
+            })
+        else:
+            return jsonify({'success': False, 'error': '县代码不存在'}), 404
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+    finally:
+        cursor.close()
+        conn.close()
 
 
 @bp.route('/<county_code>/economy', methods=['GET'])
