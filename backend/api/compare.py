@@ -3,11 +3,13 @@
 """
 from flask import Blueprint, jsonify, request
 from backend.db import execute_query
+from backend.api.auth import login_required
 
 bp = Blueprint('compare', __name__, url_prefix='/api/compare')
 
 
 @bp.route('/economy', methods=['GET'])
+@login_required
 def compare_economy():
     """对比多个县的经济数据"""
     county_codes = request.args.getlist('county_code')
@@ -45,6 +47,7 @@ def compare_economy():
 
 
 @bp.route('/agriculture', methods=['GET'])
+@login_required
 def compare_agriculture():
     """对比多个县的农业数据"""
     county_codes = request.args.getlist('county_code')
@@ -81,6 +84,7 @@ def compare_agriculture():
 
 
 @bp.route('/trend', methods=['GET'])
+@login_required
 def compare_trend():
     """对比多个县的趋势数据"""
     county_codes = request.args.getlist('county_code')

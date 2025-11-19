@@ -164,9 +164,55 @@
         ::-webkit-scrollbar-thumb:hover {
             background: #94a3b8;
         }
+
+        /* 权限控制样式 */
+        body:not(.is-logged-in) .auth-only {
+            display: none !important;
+        }
+        
+        body:not(.is-logged-in) .guest-blur {
+            filter: blur(4px);
+            pointer-events: none;
+            user-select: none;
+        }
+        
+        .guest-lock-overlay {
+            display: none;
+        }
+        
+        body:not(.is-logged-in) .guest-lock-overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(255,255,255,0.6);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+            backdrop-filter: blur(2px);
+        }
+        body:not(.is-logged-in) .guest-lock-overlay::after {
+            content: '🔒 请登录分析师账号查看';
+            background: #1e293b;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-weight: bold;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+        }
     </style>
 </head>
 <body class="bg-slate-50 text-slate-800 overflow-hidden">
+    <!-- 顶部固定导航/登录状态 -->
+    <div class="fixed top-6 right-8 z-50 flex items-center gap-4">
+        <div id="user-status" class="hidden text-sm font-medium text-slate-600 bg-white/90 backdrop-blur px-4 py-2 rounded-full shadow-md border border-slate-200 transition-all">
+            <span class="mr-3"><i class="fas fa-user-circle text-blue-600"></i> <span id="current-username">User</span> <span id="current-role" class="text-xs bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded ml-1 border border-slate-200">Guest</span></span>
+            <button onclick="logout()" class="text-slate-400 hover:text-red-600 transition border-l border-slate-200 pl-3" title="退出登录">退出</button>
+        </div>
+        <button id="login-btn" onclick="showLoginModal()" class="px-6 py-2.5 bg-slate-900/90 backdrop-blur hover:bg-slate-800 text-white text-sm font-bold rounded-full shadow-lg hover:shadow-xl transition transform hover:-translate-y-0.5 tracking-wide border border-slate-700">
+            <i class="fas fa-lock mr-2 text-xs"></i> 登录
+        </button>
+    </div>
+
     <div id="fullpage">
         <div class="section section-bg-hero">
             <div class="flex items-center justify-center h-screen">
@@ -340,8 +386,9 @@
             </div>
         </div>
         
-        <div class="section section-bg-light">
-            <div class="flex items-center justify-center h-screen px-8">
+        <div class="section section-bg-light relative">
+            <div class="guest-lock-overlay"></div>
+            <div class="flex items-center justify-center h-screen px-8 guest-blur">
                 <div class="max-w-7xl w-full">
                     <div class="mb-6">
                         <h2 class="section-title text-4xl mb-2">对比分析</h2>
@@ -465,6 +512,37 @@
         </div>
     </div>
     
+    <!-- 登录模态框 -->
+    <div id="login-modal" class="fixed inset-0 z-[100] hidden modal-backdrop flex items-center justify-center">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-md mx-4 overflow-hidden transform transition-all">
+            <div class="bg-slate-900 px-6 py-4 flex justify-between items-center">
+                <h3 class="text-lg font-bold text-white font-serif">分析师登录</h3>
+                <button onclick="closeLoginModal()" class="text-slate-400 hover:text-white transition">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="p-8">
+                <form id="login-form" onsubmit="handleLogin(event)">
+                    <div class="mb-6">
+                        <label class="block text-slate-600 text-sm font-bold mb-2" for="username">账号</label>
+                        <input class="w-full px-4 py-3 rounded border border-slate-300 focus:border-blue-900 focus:ring-1 focus:ring-blue-900 outline-none transition" id="username" type="text" placeholder="请输入用户名" required>
+                    </div>
+                    <div class="mb-8">
+                        <label class="block text-slate-600 text-sm font-bold mb-2" for="password">密码</label>
+                        <input class="w-full px-4 py-3 rounded border border-slate-300 focus:border-blue-900 focus:ring-1 focus:ring-blue-900 outline-none transition" id="password" type="password" placeholder="请输入密码" required>
+                    </div>
+                    <div class="flex items-center justify-between mb-6">
+                        <div class="text-sm text-slate-500">默认账号: admin / admin123</div>
+                    </div>
+                    <button type="submit" class="w-full bg-blue-900 hover:bg-blue-800 text-white font-bold py-3 px-4 rounded transition transform hover:-translate-y-0.5 shadow-md">
+                        <span id="login-btn-text">登 录</span>
+                    </button>
+                </form>
+                <div id="login-error" class="mt-4 text-center text-red-600 text-sm hidden"></div>
+            </div>
+        </div>
+    </div>
+
     <script>
         /**
          * 智库风 App Logic
@@ -473,6 +551,115 @@
 
         // API基础URL
         const API_BASE = 'http://localhost:5001/api';
+
+        // 拦截 fetch 请求，自动添加 credentials: 'include' 以支持跨域 Cookie
+        const originalFetch = window.fetch;
+        window.fetch = function(url, options) {
+            options = options || {};
+            // 只有请求 API_BASE 时才添加 credentials
+            if (typeof url === 'string' && url.includes(API_BASE)) {
+                options.credentials = 'include';
+            }
+            return originalFetch(url, options);
+        };
+
+        // 用户认证相关逻辑
+        let currentUser = null;
+
+        // 检查登录状态
+        async function checkLoginStatus() {
+            try {
+                const res = await fetch(`${API_BASE}/auth/me`);
+                const data = await res.json();
+                if (data.success && data.user) {
+                    updateUserUI(data.user);
+                } else {
+                    updateUserUI(null);
+                }
+            } catch (e) {
+                console.error("Auth check failed", e);
+                updateUserUI(null);
+            }
+        }
+
+        function updateUserUI(user) {
+            currentUser = user;
+            const statusDiv = document.getElementById('user-status');
+            const loginBtn = document.getElementById('login-btn');
+            
+            if (user) {
+                statusDiv.classList.remove('hidden');
+                statusDiv.classList.add('flex');
+                loginBtn.classList.add('hidden');
+                document.getElementById('current-username').textContent = user.username;
+                document.getElementById('current-role').textContent = user.role;
+                
+                document.body.classList.add('is-logged-in');
+                if (user.role === 'admin') {
+                    document.body.classList.add('is-admin');
+                }
+            } else {
+                statusDiv.classList.add('hidden');
+                statusDiv.classList.remove('flex');
+                loginBtn.classList.remove('hidden');
+                
+                document.body.classList.remove('is-logged-in', 'is-admin');
+            }
+        }
+
+        function showLoginModal() {
+            const modal = document.getElementById('login-modal');
+            modal.style.display = 'flex';
+            modal.classList.remove('hidden');
+            if (typeof fullpage_api !== 'undefined') fullpage_api.setAllowScrolling(false);
+        }
+
+        function closeLoginModal() {
+            const modal = document.getElementById('login-modal');
+            modal.style.display = 'none';
+            modal.classList.add('hidden');
+            document.getElementById('login-error').classList.add('hidden');
+            if (typeof fullpage_api !== 'undefined') fullpage_api.setAllowScrolling(true);
+        }
+
+        async function handleLogin(e) {
+            e.preventDefault();
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const errorDiv = document.getElementById('login-error');
+            
+            try {
+                const res = await fetch(`${API_BASE}/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                const data = await res.json();
+                
+                if (data.success) {
+                    closeLoginModal();
+                    updateUserUI(data.user);
+                    location.reload(); 
+                } else {
+                    errorDiv.textContent = data.error || '登录失败';
+                    errorDiv.classList.remove('hidden');
+                }
+            } catch (err) {
+                errorDiv.textContent = '网络错误，请重试';
+                errorDiv.classList.remove('hidden');
+            }
+        }
+
+        async function logout() {
+            try {
+                await fetch(`${API_BASE}/auth/logout`, { method: 'POST' });
+            } catch (e) {}
+            updateUserUI(null);
+            location.reload(); 
+        }
+        
+        // 页面加载时检查
+        window.addEventListener('load', checkLoginStatus);
 
         // 全局图表主题配置 (Light Mode / Think Tank Style)
         const CHART_THEME = {

@@ -3,16 +3,18 @@
 """
 from flask import Flask
 from flask_cors import CORS
-from backend.api import counties, interviews, compare, stats
+from backend.api import counties, interviews, compare, stats, auth
 
 app = Flask(__name__)
-CORS(app)
+app.secret_key = 'dev_secret_key_832_project'  # 开发环境密钥，生产环境应使用环境变量
+CORS(app, supports_credentials=True)  # 允许跨域携带 Cookie
 
 # 注册蓝图
 app.register_blueprint(counties.bp)
 app.register_blueprint(interviews.bp)
 app.register_blueprint(compare.bp)
 app.register_blueprint(stats.bp)
+app.register_blueprint(auth.bp)
 
 
 @app.route('/')

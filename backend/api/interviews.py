@@ -1,8 +1,9 @@
 """
 访谈记录API
 """
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, session
 from backend.db import execute_query
+from backend.api.auth import login_required
 
 bp = Blueprint('interviews', __name__, url_prefix='/api/interviews')
 
@@ -44,6 +45,12 @@ def get_interviews():
     try:
         result = execute_query(sql, params)
         
+        # 如果未登录，隐藏访谈内容详情
+        if 'user_id' not in session:
+            for row in result:
+                row['Content'] = "请登录分析师账号查看详细访谈内容"
+                # 也可以截取前几个字: row['Content'] = (row['Content'] or '')[:50] + '...'
+        
         # 获取总数
         count_sql = """
             SELECT COUNT(*) as total
@@ -78,6 +85,7 @@ def get_interviews():
 
 
 @bp.route('/<interview_id>', methods=['GET'])
+@login_required
 def get_interview_detail(interview_id):
     """获取访谈详情"""
     sql = """
