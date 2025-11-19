@@ -543,6 +543,78 @@
         </div>
     </div>
 
+    <div id="admin-modal" class="fixed inset-0 z-[100] hidden modal-backdrop flex items-center justify-center">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-3xl mx-4 overflow-hidden transform transition-all flex flex-col max-h-[85vh]">
+            <div class="bg-slate-900 px-6 py-4 flex justify-between items-center flex-shrink-0">
+                <h3 class="text-lg font-bold text-white font-serif"><i class="fas fa-cogs mr-2"></i> 管理员控制台</h3>
+                <button onclick="closeAdminModal()" class="text-slate-400 hover:text-white transition">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            
+            <div class="flex border-b border-slate-200 bg-slate-50 flex-shrink-0">
+                <button onclick="switchAdminTab('user')" id="tab-btn-user" class="flex-1 py-3 font-bold text-blue-900 border-b-2 border-blue-900 bg-white transition">用户管理</button>
+                <button onclick="switchAdminTab('data')" id="tab-btn-data" class="flex-1 py-3 font-bold text-slate-500 hover:text-slate-700 hover:bg-slate-100 transition">数据录入</button>
+            </div>
+
+            <div class="p-8 overflow-y-auto flex-1">
+                <!-- 用户管理 Tab -->
+                <div id="admin-tab-user">
+                    <h4 class="text-xl font-bold text-slate-800 mb-4 font-serif">创建分析师账号</h4>
+                    <p class="text-slate-500 mb-6 text-sm">创建新的分析师账号，分发给团队成员使用。新账号将拥有完整的数据访问权限。</p>
+                    
+                    <form onsubmit="handleCreateUser(event)" class="bg-slate-50 p-6 rounded-lg border border-slate-200">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                            <div>
+                                <label class="block text-slate-700 text-sm font-bold mb-2" for="new-username">用户名</label>
+                                <input class="w-full px-4 py-2 input-standard rounded" id="new-username" type="text" placeholder="设置用户名" required>
+                            </div>
+                            <div>
+                                <label class="block text-slate-700 text-sm font-bold mb-2" for="new-password">密码</label>
+                                <input class="w-full px-4 py-2 input-standard rounded" id="new-password" type="text" placeholder="设置初始密码" required>
+                            </div>
+                        </div>
+                        <div class="flex justify-end">
+                            <button type="submit" class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded font-bold shadow transition">
+                                <i class="fas fa-user-plus mr-2"></i> 创建用户
+                            </button>
+                        </div>
+                    </form>
+                    <div id="create-user-msg" class="mt-4 text-center hidden font-medium"></div>
+                </div>
+
+                <!-- 数据录入 Tab -->
+                <div id="admin-tab-data" class="hidden">
+                    <h4 class="text-xl font-bold text-slate-800 mb-4 font-serif">录入访谈记录</h4>
+                    <p class="text-slate-500 mb-6 text-sm">录入新的访谈数据。系统将通过数据库触发器自动更新调研员的"已完成访谈次数"。</p>
+                    
+                    <form onsubmit="handleCreateInterview(event)" class="bg-slate-50 p-6 rounded-lg border border-slate-200">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
+                            <div>
+                                <label class="block text-slate-700 text-sm font-bold mb-2">县域代码</label>
+                                <input class="w-full px-4 py-2 input-standard rounded" id="entry-county" type="text" placeholder="如: 130125" required>
+                            </div>
+                            <div>
+                                <label class="block text-slate-700 text-sm font-bold mb-2">调研员ID</label>
+                                <input class="w-full px-4 py-2 input-standard rounded" id="entry-surveyor" type="text" placeholder="如: S2021001" required>
+                            </div>
+                        </div>
+                        <div class="mb-4">
+                             <label class="block text-slate-700 text-sm font-bold mb-2">访谈内容</label>
+                             <textarea class="w-full px-4 py-2 input-standard rounded h-32" id="entry-content" placeholder="在此输入访谈纪要..." required></textarea>
+                        </div>
+                        <div class="flex justify-end">
+                            <button type="submit" class="px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded font-bold shadow transition">
+                                <i class="fas fa-save mr-2"></i> 保存记录
+                            </button>
+                        </div>
+                    </form>
+                    <div id="create-interview-msg" class="mt-4 text-center hidden font-medium"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script>
         /**
          * 智库风 App Logic
@@ -595,8 +667,23 @@
                 document.getElementById('current-role').textContent = user.role;
                 
                 document.body.classList.add('is-logged-in');
-                if (user.role === 'admin') {
-                    document.body.classList.add('is-admin');
+                
+                // Clean up old admin button if exists
+                const existingAdminBtn = document.getElementById('admin-btn');
+                if (existingAdminBtn) existingAdminBtn.remove();
+
+                if (user.role === 'admin' || user.role === 'surveyor') {
+                    if (user.role === 'admin') document.body.classList.add('is-admin');
+                    
+                    // Add admin/surveyor button
+                    const actionBtn = document.createElement('button');
+                    actionBtn.id = 'admin-btn';
+                    const btnText = user.role === 'admin' ? '管理' : '工作台';
+                    const btnIcon = user.role === 'admin' ? 'cogs' : 'edit';
+                    actionBtn.innerHTML = `<i class="fas fa-${btnIcon} text-xs"></i> ${btnText}`;
+                    actionBtn.className = 'ml-3 px-3 py-1 bg-slate-800 text-white text-xs rounded hover:bg-slate-700 transition';
+                    actionBtn.onclick = showAdminModal;
+                    document.getElementById('user-status').insertBefore(actionBtn, document.getElementById('user-status').lastElementChild);
                 }
             } else {
                 statusDiv.classList.add('hidden');
@@ -620,6 +707,127 @@
             modal.classList.add('hidden');
             document.getElementById('login-error').classList.add('hidden');
             if (typeof fullpage_api !== 'undefined') fullpage_api.setAllowScrolling(true);
+        }
+
+        // Admin Modal Logic
+        function showAdminModal() {
+            const modal = document.getElementById('admin-modal');
+            modal.style.display = 'flex';
+            modal.classList.remove('hidden');
+            if (typeof fullpage_api !== 'undefined') fullpage_api.setAllowScrolling(false);
+
+            // 角色适配
+            const userTab = document.getElementById('admin-tab-user');
+            const dataTab = document.getElementById('admin-tab-data');
+            const userBtn = document.getElementById('tab-btn-user');
+            const dataBtn = document.getElementById('tab-btn-data');
+
+            if (currentUser && currentUser.role === 'surveyor') {
+                // 调研员模式：隐藏用户管理Tab，直接显示数据录入
+                userBtn.style.display = 'none';
+                dataBtn.style.display = 'none'; // 隐藏Tab切换栏，因为只有一个功能
+                
+                userTab.classList.add('hidden');
+                dataTab.classList.remove('hidden');
+            } else {
+                // 管理员模式：显示所有Tab
+                userBtn.style.display = '';
+                dataBtn.style.display = '';
+                
+                // 默认显示第一个
+                switchAdminTab('user');
+            }
+        }
+
+        function closeAdminModal() {
+            const modal = document.getElementById('admin-modal');
+            modal.style.display = 'none';
+            modal.classList.add('hidden');
+            if (typeof fullpage_api !== 'undefined') fullpage_api.setAllowScrolling(true);
+        }
+
+        function switchAdminTab(tab) {
+            const userTab = document.getElementById('admin-tab-user');
+            const dataTab = document.getElementById('admin-tab-data');
+            const userBtn = document.getElementById('tab-btn-user');
+            const dataBtn = document.getElementById('tab-btn-data');
+
+            if (tab === 'user') {
+                userTab.classList.remove('hidden');
+                dataTab.classList.add('hidden');
+                userBtn.className = 'flex-1 py-3 font-bold text-blue-900 border-b-2 border-blue-900 bg-white transition';
+                dataBtn.className = 'flex-1 py-3 font-bold text-slate-500 hover:text-slate-700 hover:bg-slate-100 transition';
+            } else {
+                userTab.classList.add('hidden');
+                dataTab.classList.remove('hidden');
+                dataBtn.className = 'flex-1 py-3 font-bold text-blue-900 border-b-2 border-blue-900 bg-white transition';
+                userBtn.className = 'flex-1 py-3 font-bold text-slate-500 hover:text-slate-700 hover:bg-slate-100 transition';
+            }
+        }
+
+        async function handleCreateUser(e) {
+            e.preventDefault();
+            const username = document.getElementById('new-username').value;
+            const password = document.getElementById('new-password').value;
+            const msgDiv = document.getElementById('create-user-msg');
+            
+            msgDiv.classList.add('hidden');
+            
+            try {
+                const res = await fetch(`${API_BASE}/auth/register`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password, role: 'analyst' })
+                });
+                const data = await res.json();
+                
+                msgDiv.classList.remove('hidden');
+                if (data.success) {
+                    msgDiv.textContent = `✅ 用户 ${username} 创建成功`;
+                    msgDiv.className = 'mt-4 text-center font-medium text-green-600';
+                    e.target.reset();
+                } else {
+                    msgDiv.textContent = `❌ 创建失败: ${data.error}`;
+                    msgDiv.className = 'mt-4 text-center font-medium text-red-600';
+                }
+            } catch (err) {
+                msgDiv.classList.remove('hidden');
+                msgDiv.textContent = '❌ 网络错误';
+                msgDiv.className = 'mt-4 text-center font-medium text-red-600';
+            }
+        }
+
+        async function handleCreateInterview(e) {
+            e.preventDefault();
+            const county_code = document.getElementById('entry-county').value;
+            const surveyor_id = document.getElementById('entry-surveyor').value;
+            const content = document.getElementById('entry-content').value;
+            const msgDiv = document.getElementById('create-interview-msg');
+            
+            msgDiv.classList.add('hidden');
+            
+            try {
+                const res = await fetch(`${API_BASE}/interviews`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ county_code, surveyor_id, content })
+                });
+                const data = await res.json();
+                
+                msgDiv.classList.remove('hidden');
+                if (data.success) {
+                    msgDiv.textContent = `✅ 访谈记录保存成功 (ID: ${data.interview_id})`;
+                    msgDiv.className = 'mt-4 text-center font-medium text-green-600';
+                    e.target.reset();
+                } else {
+                    msgDiv.textContent = `❌ 保存失败: ${data.error}`;
+                    msgDiv.className = 'mt-4 text-center font-medium text-red-600';
+                }
+            } catch (err) {
+                msgDiv.classList.remove('hidden');
+                msgDiv.textContent = '❌ 网络错误';
+                msgDiv.className = 'mt-4 text-center font-medium text-red-600';
+            }
         }
 
         async function handleLogin(e) {
